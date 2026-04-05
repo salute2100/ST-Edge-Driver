@@ -4,7 +4,7 @@
 
 ## 지원 기기
 
-- 삼성 SDS SHP-DP950 (DADT302 Zigbee 모듈)
+- 삼성 SDS SHP-DP960SG (DADT302 Zigbee 모듈)
 - 직방 Zigbee 도어록 (동일 모듈 사용 제품)
 
 ## 주요 기능
