@@ -1,0 +1,169 @@
+name: base-lock
+components:
+- id: main
+  capabilities:
+  - id: lock
+    version: 1
+  - id: lockCodes
+    version: 1
+  - id: battery
+    version: 1
+  - id: firmwareUpdate
+    version: 1
+  - id: refresh
+    version: 1
+  categories:
+  - name: SmartLock
+preferences:
+  - title: "사용자 1 슬롯 번호"
+    name: fp1Slot
+    description: "앱 기록에서 확인한 슬롯 번호 (예: 31 unlocked → 31 입력)"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 1 이름"
+    name: fp1Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 2 슬롯 번호"
+    name: fp2Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 2 이름"
+    name: fp2Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 3 슬롯 번호"
+    name: fp3Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 3 이름"
+    name: fp3Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 4 슬롯 번호"
+    name: fp4Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 4 이름"
+    name: fp4Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 5 슬롯 번호"
+    name: fp5Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 5 이름"
+    name: fp5Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 6 슬롯 번호"
+    name: fp6Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 6 이름"
+    name: fp6Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 7 슬롯 번호"
+    name: fp7Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 7 이름"
+    name: fp7Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""
+  - title: "사용자 8 슬롯 번호"
+    name: fp8Slot
+    description: "앱 기록에서 확인한 슬롯 번호"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 0
+      maximum: 255
+      default: 0
+  - title: "사용자 8 이름"
+    name: fp8Name
+    description: "사용자 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      minLength: 0
+      maxLength: 20
+      default: ""

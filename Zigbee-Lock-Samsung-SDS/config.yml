@@ -1,0 +1,6 @@
+name: 'Zigbee Lock Samsung SDS'
+packageKey: 'zigbee-lock-samsung-sds'
+permissions:
+  zigbee: {}
+description: "Custom Edge Driver for Samsung SDS Zigbee Door Locks"
+vendorSupportInformation: "https://github.com/salute2100/ST-Edge-Driver"
