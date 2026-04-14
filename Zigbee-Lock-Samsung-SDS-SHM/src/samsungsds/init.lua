@@ -58,14 +58,9 @@ local function mfg_lock_door_handler(driver, device, zb_rx)
 end
 
 local function unlock_cmd_handler(driver, device, command)
-  -- 재택안심(armedStay) 상태에서는 하드웨어가 앱 열기를 차단함
-  -- Zigbee 커맨드를 보내지 않고 즉시 lock.locked emit → 빙글빙글 없이 빠르게 복원
-  local current = device:get_field(SECURITY_MODE_FIELD)
-  if current == "armedStay" then
-    log.warn("[SDS] 재택안심 중 앱 열기 시도 → 차단, lock.locked 즉시 복원")
-    device:emit_event(Lock.lock.locked())
-    return
-  end
+  -- 재택안심(armedStay) 상태에서도 Zigbee 커맨드를 보냄
+  -- → 도어록 본체가 거부하면서 "재택안심모드가 설정되었습니다" 음성 안내 출력
+  -- → 앱은 타임아웃 후 "네트워크 또는 서버에 오류" 표시 (SmartThings 앱 레벨 한계)
   device:send(cluster_base.build_manufacturer_specific_command(
           device,
           DoorLock.ID,
