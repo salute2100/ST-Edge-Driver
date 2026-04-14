@@ -45,11 +45,27 @@ local function handle_lock_state(driver, device, value, zb_rx)
 end
 
 local function mfg_lock_door_handler(driver, device, zb_rx)
-  -- 0x1F 응답은 emit 안 함 → RF code=16 이벤트에서 "원격으로 열림"으로 처리
-  -- (emit하면 codeName 없는 "잠금 해제됨"이 기록에 먼저 남음)
+  -- 0x1F 응답 처리
+  -- 00 = 성공 → RF code=16 OperatingEvent에서 처리하므로 여기서는 emit 안 함
+  -- 01 = 실패 → 재택안심 모드 등으로 도어록이 열기 거부한 경우
+  local body = zb_rx.body.zcl_body.body_bytes
+  if body and body:byte(1) == 0x01 then
+    log.warn("[SDS] 앱 열기 실패: 도어록이 거부함 (재택안심 모드 등)")
+    device:emit_event(Lock.lock.locked({
+      descriptionText = "도어록 버튼으로 해제 후 열어주세요."
+    }))
+  end
 end
 
 local function unlock_cmd_handler(driver, device, command)
+  -- 재택안심(armedStay) 상태에서는 하드웨어가 앱 열기를 차단함
+  -- Zigbee 커맨드를 보내지 않고 즉시 lock.locked emit → 빙글빙글 없이 빠르게 복원
+  local current = device:get_field(SECURITY_MODE_FIELD)
+  if current == "armedStay" then
+    log.warn("[SDS] 재택안심 중 앱 열기 시도 → 차단, lock.locked 즉시 복원")
+    device:emit_event(Lock.lock.locked())
+    return
+  end
   device:send(cluster_base.build_manufacturer_specific_command(
           device,
           DoorLock.ID,

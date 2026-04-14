@@ -128,13 +128,28 @@ local do_configure = function(self, device)
 end
 
 local alarm_handler = function(driver, device, zb_mess)
+  local alarm_code = zb_mess.body.zcl_body.alarm_code.value
+  log.warn(string.format("[SDS] Alarm 수신: alarm_code=0x%02X", alarm_code))
+
+  -- alarm_code: 0x00, 0x01 → 잠금 실패 등 일반 알람
+  -- alarm_code: 0x06 → 강제 개방 (Forced Entry)
+  --   보안모드 해제 없이 즉시 lock.unlocked 발송
+  --   → STHM이 armedStay/armedAway 상태에서 침입 경보 발동
+  if alarm_code == 0x06 then
+    log.warn("[SDS] 강제 개방 감지 (alarm_code=0x06) → lock.unlocked 즉시 발송")
+    local event = Lock.lock.unlocked()
+    event["data"] = { method = "manual", codeName = "강제 개방 감지" }
+    device:emit_event(event)
+    return
+  end
+
   local ALARM_REPORT = {
     [0] = Lock.lock.unknown(),
     [1] = Lock.lock.unknown(),
     -- Events 16-19 are low battery events, but are presented as descriptionText only
   }
-  if (ALARM_REPORT[zb_mess.body.zcl_body.alarm_code.value] ~= nil) then
-    device:emit_event(ALARM_REPORT[zb_mess.body.zcl_body.alarm_code.value])
+  if (ALARM_REPORT[alarm_code] ~= nil) then
+    device:emit_event(ALARM_REPORT[alarm_code])
   end
 end
 
