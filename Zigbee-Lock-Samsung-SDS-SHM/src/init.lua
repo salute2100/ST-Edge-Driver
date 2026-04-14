@@ -491,7 +491,7 @@ local lock_operation_event_handler = function(driver, device, zb_rx)
   --   emit_security_mode 호출 전에 현재 보안모드를 먼저 읽어야 함.
   --   (호출 후에는 set_field로 이미 "disarmed"로 바뀌어 조건 판별 불가)
   local current_mode_before = device:get_field(SECURITY_MODE_FIELD)
-  local race_condition_possible = is_manual_unlock
+  local race_condition_possible = is_unlocked
     and (current_mode_before == "armedStay" or current_mode_before == "armedAway")
 
   if is_unlocked then
