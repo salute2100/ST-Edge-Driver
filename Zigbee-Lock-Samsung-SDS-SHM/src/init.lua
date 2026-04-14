@@ -487,6 +487,13 @@ local lock_operation_event_handler = function(driver, device, zb_rx)
   -- armedAway + 지문/비번/앱 → disarmed (정상 귀가, 경보 없음)
   -- armedAway + 내부 버튼   → armedAway 유지 (경보 지속)
   -- armedStay + 모든 수단   → disarmed
+  -- ★ Race Condition 방지:
+  --   emit_security_mode 호출 전에 현재 보안모드를 먼저 읽어야 함.
+  --   (호출 후에는 set_field로 이미 "disarmed"로 바뀌어 조건 판별 불가)
+  local current_mode_before = device:get_field(SECURITY_MODE_FIELD)
+  local race_condition_possible = is_manual_unlock
+    and (current_mode_before == "armedStay" or current_mode_before == "armedAway")
+
   if is_unlocked then
     local current = device:get_field(SECURITY_MODE_FIELD)
     if current ~= nil and current ~= "disarmed" then
@@ -533,7 +540,16 @@ local lock_operation_event_handler = function(driver, device, zb_rx)
     end
   end
 
-  device:emit_event_for_endpoint(zb_rx.address_header.src_endpoint.value, event)
+  if race_condition_possible then
+    log.info("[SecurityMode] 내부 수동 열림 + 보안모드 활성 → lock.unlocked 1초 지연 발송 (Race Condition 방지)")
+    local ep = zb_rx.address_header.src_endpoint.value
+    device.thread:call_with_delay(1, function()
+      log.info("[SecurityMode] lock.unlocked 지연 발송")
+      device:emit_event_for_endpoint(ep, event)
+    end)
+  else
+    device:emit_event_for_endpoint(zb_rx.address_header.src_endpoint.value, event)
+  end
 end
 
 local function lock(driver, device, command)
