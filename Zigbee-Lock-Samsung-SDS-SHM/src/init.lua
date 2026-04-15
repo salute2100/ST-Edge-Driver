@@ -20,10 +20,7 @@ local SecuritySystem            = capabilities.securitySystem
 local Lock                      = capabilities.lock
 local LockCodes                 = capabilities.lockCodes
 
--- Enums
-local UserStatusEnum            = LockCluster.types.DrlkUserStatus
-local UserTypeEnum              = LockCluster.types.DrlkUserType
-local ProgrammingEventCodeEnum  = LockCluster.types.ProgramEventCode
+
 
 local socket = require "cosock.socket"
 local lock_utils = require "lock_utils"
@@ -35,39 +32,16 @@ local DELAY_LOCK_EVENT = "_delay_lock_event"
 local MAX_DELAY = 10
 
 -- 보안모드 상태 emit (securitySystem capability → Home Monitor 연동)
--- triggered_by: nil=자동해제, "user"=사용자 조작 (현재 도어록은 항상 자동해제)
-local function emit_security_mode(device, mode, triggered_by)
+local function emit_security_mode(device, mode)
   log.info("[SecurityMode] 상태 변경: " .. tostring(mode))
-
-  -- 직방 스타일 descriptionText 생성 (set_field 이전에 이전 상태 읽기)
-  local desc
-  if mode == "armedAway" then
-    desc = "외출방범모드가 설정되었습니다."
-  elseif mode == "armedStay" then
-    desc = "재택안심모드가 설정되었습니다."
-  else
-    -- 해제: 어떤 모드에서 해제됐는지 이전 상태로 표시
-    local prev = device:get_field(SECURITY_MODE_FIELD)
-    if prev == "armedAway" then
-      desc = "외출방범모드가 해제되었습니다."
-    elseif prev == "armedStay" then
-      desc = "재택안심모드가 해제되었습니다."
-    else
-      desc = "보안모드가 해제되었습니다."
-    end
-  end
-
   device:set_field(SECURITY_MODE_FIELD, mode, { persist = true })
-
-  -- securitySystem (홈 모니터링 연동)
   if mode == "armedAway" then
-    device:emit_event(SecuritySystem.securitySystemStatus.armedAway({ descriptionText = desc }))
+    device:emit_event(SecuritySystem.securitySystemStatus.armedAway())
   elseif mode == "armedStay" then
-    device:emit_event(SecuritySystem.securitySystemStatus.armedStay({ descriptionText = desc }))
+    device:emit_event(SecuritySystem.securitySystemStatus.armedStay())
   else
-    device:emit_event(SecuritySystem.securitySystemStatus.disarmed({ descriptionText = desc }))
+    device:emit_event(SecuritySystem.securitySystemStatus.disarmed())
   end
-
 end
 
 -- securitySystem 커맨드 핸들러 (홈 모니터링 양방향 연동)
@@ -153,82 +127,7 @@ local alarm_handler = function(driver, device, zb_mess)
   end
 end
 
-local get_pin_response_handler = function(driver, device, zb_mess)
-  local event = LockCodes.codeChanged("", { state_change = true })
-  local code_slot = tostring(zb_mess.body.zcl_body.user_id.value)
-  event.data = {codeName = lock_utils.get_code_name(device, code_slot)}
-  if (zb_mess.body.zcl_body.user_status.value == UserStatusEnum.OCCUPIED_ENABLED) then
-    -- Code slot is occupied
-    event.value = code_slot .. lock_utils.get_change_type(device, code_slot)
-    local lock_codes = lock_utils.get_lock_codes(device)
-    lock_codes[code_slot] = event.data.codeName
-    device:emit_event(event)
-    lock_utils.lock_codes_event(device, lock_codes)
-    lock_utils.reset_code_state(device, code_slot)
-  else
-    -- Code slot is unoccupied
-    if (lock_utils.get_lock_codes(device)[code_slot] ~= nil) then
-      -- Code has been deleted
-      lock_utils.lock_codes_event(device, lock_utils.code_deleted(device, code_slot))
-    else
-      -- Code is unset
-      event.value = code_slot .. " unset"
-      device:emit_event(event)
-    end
-  end
 
-  code_slot = tonumber(code_slot)
-  if (code_slot == device:get_field(lock_utils.CHECKING_CODE)) then
-    -- the code we're checking has arrived
-    local last_slot = device:get_latest_state("main", capabilities.lockCodes.ID, capabilities.lockCodes.maxCodes.NAME) - 1
-    if (code_slot >= last_slot) then
-      device:emit_event(LockCodes.scanCodes("Complete", { visibility = { displayed = false } }))
-      device:set_field(lock_utils.CHECKING_CODE, nil)
-    else
-      local checkingCode = device:get_field(lock_utils.CHECKING_CODE) + 1
-      device:set_field(lock_utils.CHECKING_CODE, checkingCode)
-      device:send(LockCluster.server.commands.GetPINCode(device, checkingCode))
-    end
-  end
-end
-
-local programming_event_handler = function(driver, device, zb_mess)
-  local event = LockCodes.codeChanged("", { state_change = true })
-  local code_slot = tostring(zb_mess.body.zcl_body.user_id.value)
-  event.data = {}
-  if (zb_mess.body.zcl_body.program_event_code.value == ProgrammingEventCodeEnum.MASTER_CODE_CHANGED) then
-    -- Master code changed
-    event.value = "0 set"
-    event.data = {codeName = "Master Code"}
-    device:emit_event(event)
-  elseif (zb_mess.body.zcl_body.program_event_code.value == ProgrammingEventCodeEnum.PIN_CODE_DELETED) then
-    if (zb_mess.body.zcl_body.user_id.value == 0xFF) then
-      -- All codes deleted
-      for cs, _ in pairs(lock_utils.get_lock_codes(device)) do
-        lock_utils.code_deleted(device, cs)
-      end
-      lock_utils.lock_codes_event(device, {})
-    else
-      -- One code deleted
-      if (lock_utils.get_lock_codes(device)[code_slot] ~= nil) then
-        lock_utils.lock_codes_event(device, lock_utils.code_deleted(device, code_slot))
-      end
-    end
-  elseif (zb_mess.body.zcl_body.program_event_code.value == ProgrammingEventCodeEnum.PIN_CODE_ADDED or
-          zb_mess.body.zcl_body.program_event_code.value == ProgrammingEventCodeEnum.PIN_CODE_CHANGED) then
-    -- Code added or changed
-    local change_type = lock_utils.get_change_type(device, code_slot)
-    local code_name = lock_utils.get_code_name(device, code_slot)
-    event.value = code_slot .. change_type
-    event.data = {codeName = code_name}
-    device:emit_event(event)
-    if (change_type == " set") then
-      local lock_codes = lock_utils.get_lock_codes(device)
-      lock_codes[code_slot] = code_name
-      lock_utils.lock_codes_event(device, lock_codes)
-    end
-  end
-end
 
 local handle_max_codes = function(driver, device, value)
   if value.value ~= 0 then
@@ -250,83 +149,11 @@ local handle_max_codes = function(driver, device, value)
   end
 end
 
-local handle_max_code_length = function(driver, device, value)
-  device:emit_event(LockCodes.maxCodeLength(value.value, { visibility = { displayed = false } }))
-end
 
-local handle_min_code_length = function(driver, device, value)
-  device:emit_event(LockCodes.minCodeLength(value.value, { visibility = { displayed = false } }))
-end
 
-local update_codes = function(driver, device, command)
-  local delay = 0
-  -- args.codes is json
-  for name, code in pairs(command.args.codes) do
-    -- these seem to come in the format "code[slot#]: code"
-    local code_slot = tonumber(string.gsub(name, "code", ""), 10)
-    if (code_slot ~= nil) then
-      if (code ~= nil and (code ~= "0" and code ~= "")) then
-        device.thread:call_with_delay(delay, function ()
-          device:send(LockCluster.server.commands.SetPINCode(device,
-                code_slot,
-                UserStatusEnum.OCCUPIED_ENABLED,
-                UserTypeEnum.UNRESTRICTED,
-                code))
-        end)
-        delay = delay + 2
-      else
-        device.thread:call_with_delay(delay, function ()
-          device:send(LockCluster.server.commands.ClearPINCode(device, code_slot))
-        end)
-        delay = delay + 2
-      end
-      device.thread:call_with_delay(delay, function(d)
-        device:send(LockCluster.server.commands.GetPINCode(device, code_slot))
-      end)
-      delay = delay + 2
-    end
-  end
-end
 
-local delete_code = function(driver, device, command)
-  device:send(LockCluster.attributes.SendPINOverTheAir:write(device, true))
-  device:send(LockCluster.server.commands.ClearPINCode(device, command.args.codeSlot))
-  device.thread:call_with_delay(2, function(d)
-    device:send(LockCluster.server.commands.GetPINCode(device, command.args.codeSlot))
-  end)
-end
 
-local request_code = function(driver, device, command)
-  device:send(LockCluster.server.commands.GetPINCode(device, command.args.codeSlot))
-end
 
-local set_code = function(driver, device, command)
-  if (command.args.codePIN == "") then
-    driver:inject_capability_command(device, {
-      capability = capabilities.lockCodes.ID,
-      command = capabilities.lockCodes.commands.nameSlot.NAME,
-      args = {command.args.codeSlot, command.args.codeName}
-    })
-  else
-    device:send(LockCluster.server.commands.SetPINCode(device,
-            command.args.codeSlot,
-            UserStatusEnum.OCCUPIED_ENABLED,
-            UserTypeEnum.UNRESTRICTED,
-            command.args.codePIN)
-    )
-    if (command.args.codeName ~= nil) then
-      -- wait for confirmation from the lock to commit this to memory
-      -- Groovy driver has a lot more info passed here as a description string, may need to be investigated
-      local codeState = device:get_field(lock_utils.CODE_STATE) or {}
-      codeState["setName"..command.args.codeSlot] = command.args.codeName
-      device:set_field(lock_utils.CODE_STATE, codeState, { persist = true })
-    end
-
-    device.thread:call_with_delay(4, function(d)
-      device:send(LockCluster.server.commands.GetPINCode(device, command.args.codeSlot))
-    end)
-  end
-end
 
 local name_slot = function(driver, device, command)
   local code_slot = tostring(command.args.codeSlot)
@@ -609,7 +436,6 @@ local zigbee_lock_driver = {
         [Alarm.client.commands.Alarm.ID] = alarm_handler
       },
       [LockCluster.ID] = {
-        [LockCluster.client.commands.GetPINCodeResponse.ID] = get_pin_response_handler,
         [LockCluster.client.commands.ProgrammingEventNotification.ID] = programming_event_handler_sds,
         [LockCluster.client.commands.OperatingEventNotification.ID] = lock_operation_event_handler
       }
@@ -617,19 +443,13 @@ local zigbee_lock_driver = {
     attr = {
       [LockCluster.ID] = {
         [LockCluster.attributes.LockState.ID] = lock_state_handler,
-        [LockCluster.attributes.MaxPINCodeLength.ID] = handle_max_code_length,
-        [LockCluster.attributes.MinPINCodeLength.ID] = handle_min_code_length,
         [LockCluster.attributes.NumberOfPINUsersSupported.ID] = handle_max_codes
       }
     }
   },
   capability_handlers = {
     [LockCodes.ID] = {
-      [LockCodes.commands.updateCodes.NAME] = update_codes,
-      [LockCodes.commands.deleteCode.NAME] = delete_code,
       [LockCodes.commands.reloadAllCodes.NAME] = reload_all_codes,
-      [LockCodes.commands.requestCode.NAME] = request_code,
-      [LockCodes.commands.setCode.NAME] = set_code,
       [LockCodes.commands.nameSlot.NAME] = name_slot,
     },
     [Lock.ID] = {

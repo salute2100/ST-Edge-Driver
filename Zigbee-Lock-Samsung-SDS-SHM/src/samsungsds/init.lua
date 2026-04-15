@@ -16,31 +16,12 @@ local user_switch = require "user_switch"
 local SAMSUNG_SDS_MFR_SPECIFIC_UNLOCK_COMMAND = 0x1F
 local SAMSUNG_SDS_MFR_CODE = 0x0003
 
-local SECURITY_MODE_FIELD = "securityMode"
 
 local function handle_lock_state(driver, device, value, zb_rx)
   if value.value == DoorLock.attributes.LockState.LOCKED then
     device:emit_event(Lock.lock.locked())
   elseif value.value == DoorLock.attributes.LockState.UNLOCKED then
     device:emit_event(Lock.lock.unlocked())
-    -- 앱 원격 열기 폴백: OperatingEventNotification이 오지 않은 경우
-    -- source=RF(앱)이므로 인증된 열림 → 무조건 disarmed 처리
-    local current = device:get_field(SECURITY_MODE_FIELD)
-    if current ~= nil and current ~= "disarmed" then
-      log.info("[SecurityMode] LockState UNLOCKED → 보안모드 해제: " .. tostring(current))
-      local prev = current
-      device:set_field(SECURITY_MODE_FIELD, "disarmed", { persist = true })
-      local desc
-      if prev == "armedAway" then
-        desc = "외출방범모드가 해제되었습니다."
-      elseif prev == "armedStay" then
-        desc = "재택안심모드가 해제되었습니다."
-      else
-        desc = "보안모드가 해제되었습니다."
-      end
-      local SecuritySystem = capabilities.securitySystem
-      device:emit_event(SecuritySystem.securitySystemStatus.disarmed({ descriptionText = desc }))
-    end
   end
 end
 
