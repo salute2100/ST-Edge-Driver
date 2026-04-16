@@ -16,7 +16,7 @@
 
 ## 설치 방법
 
-1. [채널 등록](https://bestow-regional.api.smartthings.com/invite/r3MyN87OZJ2p) 후 허브에 Enroll
+1. [채널 등록](https://bestow-regional.api.smartthings.com/invite/oDM85J4n0w2L) 후 허브에 Enroll
 2. SmartThings 앱 → 기기 → 도어록 → 드라이버 선택 → `Zigbee Lock Samsung SDS` 설치
 
 ## 사용자 재실 센서 설정
